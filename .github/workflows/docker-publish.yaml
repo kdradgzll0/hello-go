@@ -29,9 +29,14 @@ jobs:
           push: true
           tags: kdradgzl/hello-go:latest
 
-      - name: Decode and configure kubeconfig
+      - name: Authenticate to GCP and configure kubeconfig
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ${{ github.workspace }}/kubeconfig
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > key.json
+          gcloud auth activate-service-account --key-file=key.json
+          gcloud config set project aerobic-gantry-459812-k1
+          gcloud container clusters get-credentials hello-go-cluster --zone us-central1-c --project aerobic-gantry-459812-k1
         shell: bash
 
       - name: Install kubectl, Helm and gke-gcloud-auth-plugin
@@ -53,16 +58,12 @@ jobs:
           sudo mv gke-gcloud-auth-plugin /usr/local/bin/
         shell: bash
 
-      - name: Set KUBECONFIG and verify context
-        env:
-          KUBECONFIG: ${{ github.workspace }}/kubeconfig
+      - name: Verify Kubernetes context
         run: |
           kubectl config get-contexts
           kubectl get nodes
 
       - name: Deploy with Helm
-        env:
-          KUBECONFIG: ${{ github.workspace }}/kubeconfig
         run: |
           helm upgrade --install hello-go-release ./hello-go \
             --namespace default \
