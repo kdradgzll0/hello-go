@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build, Push Docker Image & Deploy to Kubernetes
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,4 +28,19 @@ jobs:
           context: .
           push: true
           tags: kdradgzl/hello-go:latest
+
+      - name: Decode and configure kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig
+        shell: bash
+
+      - name: Set KUBECONFIG
+        run: |
+          export KUBECONFIG=$PWD/kubeconfig
+          kubectl config get-contexts
+
+      - name: Deploy with Helm
+        run: |
+          export KUBECONFIG=$PWD/kubeconfig
+          helm upgrade --install hello-go-release ./hello-go --namespace default
 
