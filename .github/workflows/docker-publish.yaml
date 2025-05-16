@@ -50,7 +50,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/
 
           # Install Helm
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
           # Install gke-gcloud-auth-plugin
           curl -LO https://storage.googleapis.com/gke-gcloud-auth-plugin/release/latest/linux/amd64/gke-gcloud-auth-plugin
