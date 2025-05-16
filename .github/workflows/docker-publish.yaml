@@ -8,11 +8,17 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # GCP auth için gerekli
 
     steps:
+      # 1. Kod Checkout
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
+      # 2. Docker İşlemleri
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -28,44 +34,32 @@ jobs:
           context: .
           push: true
           tags: kdradgzl/hello-go:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Authenticate to GCP and configure kubeconfig
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GCP_SA_KEY }}
+      # 3. GCP ve Kubernetes Auth
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}  # JSON formatında olmalı!
+          
+      - name: Set up GCloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: aerobic-gantry-459812-k1
+
+      - name: Configure Kubernetes
         run: |
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > key.json
-          gcloud auth activate-service-account --key-file=key.json
-          gcloud config set project aerobic-gantry-459812-k1
-          gcloud container clusters get-credentials hello-go-cluster --zone us-central1-c --project aerobic-gantry-459812-k1
-        shell: bash
-
-      - name: Install kubectl, Helm and gke-gcloud-auth-plugin
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-transport-https curl ca-certificates gnupg software-properties-common
-
-          # Install kubectl
-          curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-
-          # Install Helm
-          HELM_VERSION="v3.14.4"
-          curl -LO https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz
-          tar -zxvf helm-${HELM_VERSION}-linux-amd64.tar.gz
-          sudo mv linux-amd64/helm /usr/local/bin/
-          rm -rf linux-amd64 helm-${HELM_VERSION}-linux-amd64.tar.gz
-
-          # Install gke-gcloud-auth-plugin
-          curl -LO https://storage.googleapis.com/gke-gcloud-auth-plugin/release/latest/linux/amd64/gke-gcloud-auth-plugin
-          chmod +x gke-gcloud-auth-plugin
-          sudo mv gke-gcloud-auth-plugin /usr/local/bin/
-        shell: bash
-
-      - name: Verify Kubernetes context
-        run: |
+          gcloud container clusters get-credentials hello-go-cluster \
+            --zone us-central1-c \
+            --project aerobic-gantry-459812-k1
           kubectl config get-contexts
-          kubectl get nodes
+
+      # 4. Helm Kurulum ve Deploy
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.4'
 
       - name: Deploy with Helm
         run: |
@@ -74,7 +68,5 @@ jobs:
             --create-namespace \
             --set image.repository=kdradgzl/hello-go \
             --set image.tag=latest \
-            --set replicaCount=1 \
-            --set service.type=LoadBalancer
-
+            --atomic --wait --timeout 5m
 
