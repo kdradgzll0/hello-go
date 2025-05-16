@@ -31,31 +31,42 @@ jobs:
 
       - name: Decode and configure kubeconfig
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > kubeconfig
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ${{ github.workspace }}/kubeconfig
         shell: bash
 
-      - name: Install kubectl and gke-gcloud-auth-plugin
+      - name: Install kubectl, Helm and gke-gcloud-auth-plugin
         run: |
           sudo apt-get update
-          sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
+          sudo apt-get install -y apt-transport-https curl ca-certificates gnupg software-properties-common
+
+          # Install kubectl
           curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/kubectl
+          sudo mv kubectl /usr/local/bin/
+
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+          # Install gke-gcloud-auth-plugin
           curl -LO https://storage.googleapis.com/gke-gcloud-auth-plugin/release/latest/linux/amd64/gke-gcloud-auth-plugin
           chmod +x gke-gcloud-auth-plugin
-          sudo mv gke-gcloud-auth-plugin /usr/local/bin/gke-gcloud-auth-plugin
+          sudo mv gke-gcloud-auth-plugin /usr/local/bin/
+        shell: bash
 
       - name: Set KUBECONFIG and verify context
         env:
           KUBECONFIG: ${{ github.workspace }}/kubeconfig
         run: |
           kubectl config get-contexts
+          kubectl get nodes
 
       - name: Deploy with Helm
         env:
           KUBECONFIG: ${{ github.workspace }}/kubeconfig
         run: |
           helm upgrade --install hello-go-release ./hello-go \
+            --namespace default \
+            --create-namespace \
             --set image.repository=kdradgzl/hello-go \
             --set image.tag=latest \
             --set replicaCount=1 \
