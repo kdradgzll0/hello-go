@@ -37,7 +37,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 3. GCP ve Kubernetes Auth (DÜZELTİLDİ)
+      # 3. GCP ve Kubernetes Auth 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -62,7 +62,7 @@ jobs:
         with:
           version: 'v3.14.4'
 
-      - name: Deploy with Helm (DÜZELTİLDİ)
+      - name: Deploy with Helm 
         run: |
           export USE_GKE_GCLOUD_AUTH_PLUGIN=True
           helm upgrade --install hello-go-release ./hello-go \
